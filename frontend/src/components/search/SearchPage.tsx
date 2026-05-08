@@ -25,7 +25,7 @@ const SearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [filters, setFilters] = useState<SearchFiltersState>({});
-  const [facetCounts, setFacetCounts] = useState<FacetCounts>({});
+  const [facetCounts, setFacetCounts] = useState<FacetCounts | undefined>(undefined);
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
     limit: 20,
