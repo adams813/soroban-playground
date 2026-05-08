@@ -1566,7 +1566,7 @@ export default function Home() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-3 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                      <span>{new Date(item.createdAt).toLocaleTimeString()}</span>
+                      <span suppressHydrationWarning>{new Date(item.createdAt).toLocaleTimeString()}</span>
                       {item.hash ? <span>{item.hash}</span> : null}
                       {item.output ? <span>Output {item.output}</span> : null}
                     </div>
