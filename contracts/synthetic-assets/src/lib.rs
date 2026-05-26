@@ -259,8 +259,8 @@ impl SyntheticAssetsContract {
             last_updated: env.ledger().timestamp(),
         };
 
-        set_collateral_position(&env, position_id, &position);
         increment_position_counter(&env, 1)?;
+        set_collateral_position(&env, position_id, &position);
 
         // Update total supply
         let mut asset = get_synthetic_asset(&env, &asset_symbol)?;
@@ -732,7 +732,7 @@ impl SyntheticAssetsContract {
         new_price: i128,
     ) -> Result<u32, Error> {
         let current_price = get_price_internal(&env, &asset_symbol)?;
-        Ok(calculate_price_deviation(current_price, new_price))
+        calculate_price_deviation(current_price, new_price)
     }
 
     /// Check if a proposed price update is within a maximum deviation bound
@@ -743,11 +743,11 @@ impl SyntheticAssetsContract {
         max_deviation_bps: u32,
     ) -> Result<bool, Error> {
         let current_price = get_price_internal(&env, &asset_symbol)?;
-        Ok(is_price_valid_deviation(
+        is_price_valid_deviation(
             current_price,
             new_price,
             max_deviation_bps,
-        ))
+        )
     }
 
     /// Get list of all registered synthetic assets

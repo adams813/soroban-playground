@@ -44,7 +44,7 @@ pub fn get_price_internal(env: &Env, asset_symbol: &Symbol) -> Result<i128, Erro
                 return Err(Error::StalePrice);
             }
         }
-        None => return Err(Error::StalePrice),
+        None => return Err(Error::Overflow),
     }
 
     if price_data.confidence < MIN_CONFIDENCE {
@@ -77,21 +77,24 @@ pub fn validate_price(price: i128, confidence: u32) -> Result<(), Error> {
     Ok(())
 }
 
-/// Calculate price deviation between two prices (in basis points)
-pub fn calculate_price_deviation(old_price: i128, new_price: i128) -> u32 {
-    if old_price <= 0 {
-        return u32::MAX;
+/// Calculate price deviation between two prices (in basis points).
+///
+/// Returns `Error::InvalidPrice` for non-positive prices and `Error::Overflow`
+/// when checked arithmetic fails.
+pub fn calculate_price_deviation(old_price: i128, new_price: i128) -> Result<u32, Error> {
+    if old_price <= 0 || new_price <= 0 {
+        return Err(Error::InvalidPrice);
     }
 
     let diff = if new_price >= old_price {
         match new_price.checked_sub(old_price) {
             Some(v) => v,
-            None => return u32::MAX,
+            None => return Err(Error::Overflow),
         }
     } else {
         match old_price.checked_sub(new_price) {
             Some(v) => v,
-            None => return u32::MAX,
+            None => return Err(Error::Overflow),
         }
     };
 
@@ -99,23 +102,23 @@ pub fn calculate_price_deviation(old_price: i128, new_price: i128) -> u32 {
     let scaled = match diff.checked_mul(10000) {
         Some(v) => match v.checked_div(old_price) {
             Some(d) => d,
-            None => return u32::MAX,
+            None => return Err(Error::Overflow),
         },
-        None => return u32::MAX,
+        None => return Err(Error::Overflow),
     };
 
     if scaled > u32::MAX as i128 {
-        u32::MAX
+        Err(Error::Overflow)
     } else {
-        scaled as u32
+        Ok(scaled as u32)
     }
 }
 
 /// Check if price deviation is within acceptable bounds
-pub fn is_price_valid_deviation(old_price: i128, new_price: i128, max_deviation: u32) -> bool {
-    let dev = calculate_price_deviation(old_price, new_price);
-    if dev == u32::MAX {
-        return false;
-    }
-    dev <= max_deviation
+pub fn is_price_valid_deviation(
+    old_price: i128,
+    new_price: i128,
+    max_deviation: u32,
+) -> Result<bool, Error> {
+    Ok(calculate_price_deviation(old_price, new_price)? <= max_deviation)
 }
