@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.js', '**/tests/syntheticAssets.*.test.js'],
@@ -5,7 +7,5 @@ module.exports = {
   transform: {
     '^.+\\.js$': ['babel-jest', { configFile: './babel.config.cjs' }]
   },
-  extensionsToTreatAsEsm: ['.js'],
   transformIgnorePatterns: [],
-  nodeOptions: ['--experimental-vm-modules']
 };
