@@ -1,98 +1,98 @@
-// Copyright (c) 2026 StellarDevTools
-// SPDX-License-Identifier: MIT
+"use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
-import { TypeBadge } from "./DataTypeFormatter";
-import type { StorageDataType } from "./DataTypeFormatter";
+import type { DataType } from "./DataTypeFormatter";
 
-export const DATA_TYPES: StorageDataType[] = [
-  "address",
-  "bytes",
-  "integer",
-  "number",
-  "bool",
-  "string",
-  "vec",
-  "map",
+export const DATA_TYPES: DataType[] = [
+  "address", "boolean", "base64", "decimal", "hex", "integer", "json", "null", "string",
 ];
 
-interface StorageSearchBarProps {
+export interface StorageSearchState {
   query: string;
-  onQueryChange: (q: string) => void;
-  typeFilter: StorageDataType | "";
-  onTypeFilterChange: (t: StorageDataType | "") => void;
-  resultCount: number;
-  totalCount: number;
+  types: DataType[];
 }
 
-export default function StorageSearchBar({
-  query,
-  onQueryChange,
-  typeFilter,
-  onTypeFilterChange,
-  resultCount,
-  totalCount,
-}: StorageSearchBarProps) {
+interface StorageSearchBarProps {
+  value: StorageSearchState;
+  onChange: (s: StorageSearchState) => void;
+  className?: string;
+}
+
+const StorageSearchBar: React.FC<StorageSearchBarProps> = ({ value, onChange, className = "" }) => {
+  const [localQuery, setLocalQuery] = useState(value.query);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setLocalQuery(value.query);
+  }, [value.query]);
+
+  const handleQueryChange = (q: string) => {
+    setLocalQuery(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onChange({ ...value, query: q }), 200);
+  };
+
+  const toggleType = (type: DataType) => {
+    const next = value.types.includes(type)
+      ? value.types.filter((t) => t !== type)
+      : [...value.types, type];
+    onChange({ ...value, types: next });
+  };
+
+  const clearAll = () => {
+    setLocalQuery("");
+    onChange({ query: "", types: [] });
+  };
+
+  const hasFilters = localQuery || value.types.length > 0;
+
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      {/* Text search */}
-      <div className="relative flex-1">
-        <Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
-        />
+    <div className={`space-y-2 ${className}`}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         <input
-          type="search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
+          type="text"
+          value={localQuery}
+          onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search keys or values…"
-          className="w-full bg-slate-800/70 text-slate-200 text-xs rounded-lg pl-8 pr-8 py-2 placeholder-slate-500 border border-slate-700/60 focus:outline-none focus:ring-1 focus:ring-teal-500/60 transition-colors"
-          aria-label="Search storage entries"
+          aria-label="Search storage"
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full pl-9 pr-9 py-2 text-sm bg-gray-900 text-gray-100 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none placeholder-gray-500"
         />
-        {query && (
+        {hasFilters && (
           <button
-            onClick={() => onQueryChange("")}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-            aria-label="Clear search"
+            onClick={clearAll}
+            aria-label="Clear filters"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
           >
-            <X size={12} />
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Type filter */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <button
-          onClick={() => onTypeFilterChange("")}
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
-            typeFilter === ""
-              ? "bg-teal-500/15 border-teal-500/40 text-teal-300"
-              : "bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200"
-          }`}
-          aria-pressed={typeFilter === ""}
-        >
-          All
-        </button>
-        {DATA_TYPES.map((t) => (
-          <button
-            key={t}
-            onClick={() => onTypeFilterChange(typeFilter === t ? "" : t)}
-            className={`transition-opacity ${typeFilter !== "" && typeFilter !== t ? "opacity-50" : ""}`}
-            aria-pressed={typeFilter === t}
-            title={`Filter by ${t}`}
-          >
-            <TypeBadge type={t} />
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by data type">
+        {DATA_TYPES.map((type) => {
+          const active = value.types.includes(type);
+          return (
+            <button
+              key={type}
+              onClick={() => toggleType(type)}
+              aria-pressed={active}
+              className={`px-2 py-0.5 text-xs rounded font-mono transition-colors ${
+                active
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              }`}
+            >
+              {type}
+            </button>
+          );
+        })}
       </div>
-
-      {/* Result count */}
-      {(query || typeFilter) && (
-        <span className="text-[10px] text-slate-500 whitespace-nowrap shrink-0">
-          {resultCount} / {totalCount}
-        </span>
-      )}
     </div>
   );
-}
+};
+
+export default StorageSearchBar;

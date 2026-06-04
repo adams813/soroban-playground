@@ -1,222 +1,196 @@
 "use client";
 
-// Copyright (c) 2026 StellarDevTools
-// SPDX-License-Identifier: MIT
-
-import React, { useState, useCallback, useMemo } from "react";
-import { Database, RefreshCw, Download } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Database, Download, AlertCircle, RefreshCw } from "lucide-react";
 import StorageTree from "@/components/StorageTree";
-import StorageSearchBar from "@/components/StorageSearchBar";
-import type { StorageEntry } from "@/components/StorageTree";
-import type { StorageDataType } from "@/components/DataTypeFormatter";
+import StorageSearchBar, { type StorageSearchState } from "@/components/StorageSearchBar";
+import DataTypeFormatter, { detectType } from "@/components/DataTypeFormatter";
+import type { StorageEntry, DiffKind } from "@/components/StorageTree";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const DEMO_STORAGE: Record<string, unknown> = {
+  "counter": 42,
+  "owner": "GABC1234567890XYZTESTACCOUNTADDRESSFULL1234567890AB",
+  "config": {
+    "max_supply": 1000000,
+    "decimals": 7,
+    "paused": false,
+  },
+  "balances": {
+    "GABC1234567890": 5000,
+    "GDEF0987654321": 2500,
+  },
+  "metadata": "aGVsbG8gd29ybGQgZnJvbSBzb3JvYmFu",
+  "prices": [1.23, 4.56, 7.89],
+  "last_hash": "0x1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7081",
+  "total_supply": 7500,
+  "initialized": true,
+  "admin_nonce": null,
+};
 
-const NETWORKS = ["testnet", "mainnet", "futurenet", "standalone"] as const;
-type Network = (typeof NETWORKS)[number];
+const DEMO_DIFF: Record<string, DiffKind> = {
+  counter: "changed",
+  total_supply: "changed",
+  "balances.GDEF0987654321": "added",
+  last_hash: "changed",
+};
 
-function exportJson(entries: StorageEntry[], contractId: string) {
-  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+function exportJSON(data: Record<string, unknown>, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `storage-${contractId.slice(0, 8)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function exportCsv(entries: StorageEntry[], contractId: string) {
-  const rows = [
-    ["id", "key", "type", "value"],
-    ...entries.map((e) => [
-      String(e.id),
-      e.key,
-      e.type,
-      typeof e.value === "string" ? e.value : JSON.stringify(e.value),
-    ]),
-  ];
-  const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+function exportCSV(entries: StorageEntry[], filename: string) {
+  const rows = entries.map((e) => {
+    const v = typeof e.value === "object" ? JSON.stringify(e.value) : String(e.value);
+    return `"${e.key}","${detectType(e.value)}","${v.replace(/"/g, '""')}","${e.diff}"`;
+  });
+  const csv = ["Key,Type,Value,Diff", ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `storage-${contractId.slice(0, 8)}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export default function StorageBrowserPage() {
-  const [contractId, setContractId] = useState("");
-  const [network, setNetwork] = useState<Network>("testnet");
-  const [entries, setEntries] = useState<StorageEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [loadedContract, setLoadedContract] = useState("");
+  const [contractId, setContractId] = useState("CDEMO…CONTRACTID");
+  const [searchState, setSearchState] = useState<StorageSearchState>({ query: "", types: [] });
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Search / filter state
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<StorageDataType | "">("");
+  const entries: StorageEntry[] = useMemo(() => {
+    const all: StorageEntry[] = Object.entries(DEMO_STORAGE).map(([key, value]) => ({
+      key,
+      value,
+      diff: (DEMO_DIFF[key] ?? "unchanged") as DiffKind,
+    }));
 
-  const fetchEntries = useCallback(async () => {
-    const id = contractId.trim();
-    if (!id) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/storage/entries?contractId=${encodeURIComponent(id)}&network=${network}`
+    let filtered = all;
+
+    if (searchState.query) {
+      const q = searchState.query.toLowerCase();
+      filtered = filtered.filter(
+        (e) =>
+          e.key.toLowerCase().includes(q) ||
+          String(e.value).toLowerCase().includes(q)
       );
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      setEntries(data.data.entries);
-      setLoadedContract(id);
-      setQuery("");
-      setTypeFilter("");
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to fetch storage");
-      setEntries([]);
-    } finally {
-      setLoading(false);
     }
-  }, [contractId, network]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") fetchEntries();
-  };
+    if (searchState.types.length > 0) {
+      filtered = filtered.filter((e) => searchState.types.includes(detectType(e.value)));
+    }
 
-  const filteredEntries = useMemo(() => {
-    return entries.filter((entry) => {
-      if (typeFilter && entry.type !== typeFilter) return false;
-      if (!query) return true;
-      const q = query.toLowerCase();
-      const valueStr =
-        typeof entry.value === "string"
-          ? entry.value.toLowerCase()
-          : JSON.stringify(entry.value).toLowerCase();
-      return entry.key.toLowerCase().includes(q) || valueStr.includes(q);
-    });
-  }, [entries, query, typeFilter]);
+    return filtered;
+  }, [searchState]);
 
   return (
-    <main className="min-h-screen bg-[#060c18] text-slate-200 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-5">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20">
-            <Database size={20} className="text-teal-400" />
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      <div className="border-b border-gray-800 bg-gray-900 px-6 py-5">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-2 mb-1">
+            <Database className="w-5 h-5 text-cyan-400" />
+            <h1 className="text-xl font-bold">Contract Storage Browser</h1>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-white">Storage Browser</h1>
-            <p className="text-xs text-slate-500">
-              Inspect and explore contract ledger storage entries
+          <p className="text-sm text-gray-400">
+            Inspect, search, and export contract storage data with type detection and diff tracking.
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+        {/* API integration notice */}
+        <div className="flex items-start gap-3 p-4 bg-blue-950/20 border border-blue-800/40 rounded-lg">
+          <AlertCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="text-blue-300 font-medium mb-1">Demo Mode</p>
+            <p className="text-blue-200/70">
+              Backend storage API integration pending. Showing mock data for UI testing. Real-time polling will fetch from{" "}
+              <code className="bg-blue-950 px-1.5 py-0.5 rounded text-xs">
+                GET /api/storage/:contractId
+              </code>
             </p>
           </div>
         </div>
 
-        {/* Query bar */}
-        <div className="flex gap-2 flex-wrap">
-          <input
-            type="text"
-            placeholder="Contract ID (C…)"
-            value={contractId}
-            onChange={(e) => setContractId(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 min-w-0 bg-slate-800/70 text-slate-200 text-sm rounded-xl px-4 py-2.5 placeholder-slate-500 border border-slate-700/60 focus:outline-none focus:ring-1 focus:ring-teal-500/60 font-mono transition-colors"
-            aria-label="Contract ID"
-          />
-          <select
-            value={network}
-            onChange={(e) => setNetwork(e.target.value as Network)}
-            className="bg-slate-800/70 text-slate-200 text-sm rounded-xl px-3 py-2.5 border border-slate-700/60 focus:outline-none focus:ring-1 focus:ring-teal-500/60 transition-colors"
-            aria-label="Network"
-          >
-            {NETWORKS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={fetchEntries}
-            disabled={loading || !contractId.trim()}
-            className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-2.5 rounded-xl transition-colors font-medium"
-            aria-label="Load storage"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            {loading ? "Loading…" : "Load"}
-          </button>
+        {/* Contract ID input */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <label htmlFor="contractId" className="block text-sm font-medium text-gray-300 mb-2">
+            Contract ID
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="contractId"
+              type="text"
+              value={contractId}
+              onChange={(e) => setContractId(e.target.value)}
+              placeholder="C… (56 chars)"
+              className="flex-1 px-3 py-2 text-sm bg-gray-950 border border-gray-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent outline-none font-mono"
+            />
+            <button
+              onClick={() => {/* API fetch here */}}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm rounded-lg transition-colors"
+            >
+              Load
+            </button>
+          </div>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div
-            className="bg-rose-900/25 border border-rose-700/50 text-rose-300 text-xs rounded-xl px-4 py-3"
-            role="alert"
-          >
-            {error}
+        {/* Search & Filters */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-medium text-gray-300 mb-3">Search & Filter</h2>
+          <StorageSearchBar value={searchState} onChange={setSearchState} />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-600 focus:ring-cyan-500"
+              />
+              <RefreshCw className="w-3.5 h-3.5" />
+              Auto-refresh (5s)
+            </label>
+            <span className="text-xs text-gray-500">
+              {entries.length} / {Object.keys(DEMO_STORAGE).length} entries
+            </span>
           </div>
-        )}
 
-        {/* Results section */}
-        {loadedContract && (
-          <div className="space-y-3">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <StorageSearchBar
-                  query={query}
-                  onQueryChange={setQuery}
-                  typeFilter={typeFilter}
-                  onTypeFilterChange={setTypeFilter}
-                  resultCount={filteredEntries.length}
-                  totalCount={entries.length}
-                />
-              </div>
-              {/* Export buttons */}
-              {entries.length > 0 && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => exportJson(filteredEntries, loadedContract)}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 px-3 py-1.5 rounded-lg transition-colors"
-                    title="Export as JSON"
-                  >
-                    <Download size={12} />
-                    JSON
-                  </button>
-                  <button
-                    onClick={() => exportCsv(filteredEntries, loadedContract)}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 px-3 py-1.5 rounded-lg transition-colors"
-                    title="Export as CSV"
-                  >
-                    <Download size={12} />
-                    CSV
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Info pill */}
-            <div className="flex items-center gap-2 text-[11px] text-slate-500">
-              <span className="font-mono text-slate-400">{loadedContract.slice(0, 10)}…</span>
-              <span>·</span>
-              <span>{network}</span>
-              <span>·</span>
-              <span>{entries.length} entries</span>
-            </div>
-
-            {/* Storage tree */}
-            <StorageTree entries={filteredEntries} />
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportJSON(DEMO_STORAGE, `storage-${Date.now()}.json`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              JSON
+            </button>
+            <button
+              onClick={() => exportCSV(entries, `storage-${Date.now()}.csv`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              CSV
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Empty state */}
-        {!loadedContract && !loading && !error && (
-          <div className="flex flex-col items-center justify-center py-16 text-center text-slate-600 space-y-2">
-            <Database size={36} className="opacity-30" />
-            <p className="text-sm">Enter a contract ID to browse its storage</p>
+        {/* Storage Tree */}
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+          <h2 className="text-sm font-medium text-gray-300 mb-3">Storage Entries</h2>
+          <div className="bg-gray-950 border border-gray-800 rounded-lg p-3 max-h-[600px] overflow-y-auto">
+            <StorageTree entries={entries} />
           </div>
-        )}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
