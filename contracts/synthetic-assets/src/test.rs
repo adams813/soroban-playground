@@ -96,7 +96,7 @@ fn test_initialize_already_initialized() {
 #[should_panic(expected = "Error(Contract, #17)")]
 fn test_initialize_invalid_collateral_ratio() {
     let (_env, client, admin, oracle, collateral_token) = setup_env();
-    
+
     client.initialize(
         &admin,
         &oracle,
@@ -122,6 +122,87 @@ fn test_initialize_invalid_liquidation_threshold() {
         &500u32,
         &100u32,
     );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #24)")]
+fn test_storage_price_not_available() {
+    let (env, _client, _admin, _oracle, _collateral) = setup_env();
+    let symbol = Symbol::new(&env, "MISSING");
+
+    crate::storage::get_price(&env, &symbol).unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #25)")]
+fn test_update_price_low_confidence() {
+    let (env, client, _admin, _oracle, _collateral) = setup_contract();
+    let symbol = Symbol::new(&env, "sUSD");
+
+    client.register_synthetic_asset(
+        &symbol,
+        &String::from_str(&env, "Synthetic USD"),
+        &8u32,
+        &100000000i128,
+    );
+
+    client.update_price(&symbol, &105000000i128, &10u32);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn test_update_price_confidence_too_high_invalid() {
+    let (env, client, _admin, _oracle, _collateral) = setup_contract();
+    let symbol = Symbol::new(&env, "sUSD");
+
+    client.register_synthetic_asset(
+        &symbol,
+        &String::from_str(&env, "Synthetic USD"),
+        &8u32,
+        &100000000i128,
+    );
+
+    client.update_price(&symbol, &105000000i128, &101u32);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")]
+fn test_get_validated_asset_price_stale() {
+    let (env, client, _admin, _oracle, _collateral) = setup_contract();
+    let symbol = Symbol::new(&env, "sUSD");
+
+    client.register_synthetic_asset(
+        &symbol,
+        &String::from_str(&env, "Synthetic USD"),
+        &8u32,
+        &100000000i128,
+    );
+
+    let old_ts = env.ledger().timestamp().saturating_sub(1000u64);
+    let price_data = crate::types::PriceData {
+        price: 100000000i128,
+        timestamp: old_ts,
+        confidence: 100u32,
+    };
+    crate::storage::set_price(&env, &symbol, &price_data);
+
+    client.get_validated_asset_price(&symbol);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #26)")]
+fn test_increment_position_counter_overflow() {
+    let (env, _client, _admin, _oracle, _collateral) = setup_env();
+
+    crate::storage::set_position_counter(&env, u64::MAX);
+    crate::storage::increment_position_counter(&env, 1).unwrap();
+}
+
+#[test]
+fn test_calculate_price_deviation_overflow_case() {
+    let huge = i128::MAX;
+    let err = crate::oracle::calculate_price_deviation(1i128, huge).unwrap_err();
+    assert_eq!(err, Error::Overflow);
 }
 
 #[test]
@@ -938,6 +1019,8 @@ fn test_mint_nonexistent_asset() {
     // Try to mint nonexistent asset
     client.mint_synthetic(&user, &symbol, &3000000i128, &2000000i128);
 }
+
+#[test]
 fn test_high_leverage_bounds() {
     let (env, client, _admin, _, collateral_token) = setup_contract();
     
