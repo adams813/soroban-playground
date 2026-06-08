@@ -28,6 +28,8 @@ import sportsPredictionMarketRoute from './routes/sportsPredictionMarket.js';
 import warrantyManagementRoute from './routes/warrantyManagement.js';
 import yieldOptimizerRoute from './routes/yieldOptimizer.js';
 import reitRoute from './routes/reit.js';
+import { setupGraphQL } from './graphql/index.js';
+import { initializeDatabase } from './database/connection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

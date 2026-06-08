@@ -8,6 +8,10 @@ function getFreighterApi() {
     if (window.freighterApi) {
       return window.freighterApi;
     }
+    // Check legacy window.freighter
+    if (window.freighter) {
+      return window.freighter;
+    }
     // Try Stellar SDK compatibility
     if (window.StellarSdk) {
       return window.StellarSdk;

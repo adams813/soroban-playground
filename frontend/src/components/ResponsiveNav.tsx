@@ -332,7 +332,7 @@ export default function ResponsiveNav({ children }: { children: React.ReactNode 
                 </div>
               ) : (
                 <button
-                  onClick={wallet.connect}
+                  onClick={() => wallet.connect()}
                   disabled={wallet.status === "connecting"}
                   className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 hover:border-teal-500/40 text-teal-300 text-[10px] font-semibold tracking-wider uppercase transition-colors"
                 >
@@ -440,7 +440,7 @@ export default function ResponsiveNav({ children }: { children: React.ReactNode 
               </p>
             ) : (
               <button
-                onClick={wallet.connect}
+                onClick={() => wallet.connect()}
                 className="w-full flex items-center justify-center gap-1 bg-teal-600 hover:bg-teal-500 text-slate-950 text-[10px] font-semibold py-1.5 rounded-lg transition-colors"
               >
                 Connect Wallet
@@ -501,7 +501,7 @@ export default function ResponsiveNav({ children }: { children: React.ReactNode 
               </button>
             ) : (
               <button
-                onClick={wallet.connect}
+                onClick={() => wallet.connect()}
                 disabled={wallet.status === "connecting"}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-400 to-teal-500 hover:from-teal-300 hover:to-teal-400 text-slate-950 font-semibold text-xs transition-all shadow-[0_0_15px_rgba(45,212,191,0.2)] hover:shadow-[0_0_20px_rgba(45,212,191,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
               >

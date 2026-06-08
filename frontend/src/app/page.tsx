@@ -1239,9 +1239,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => {
-                  useEffect(() => {
-                    void loadWalletState(true);
-                  }, []);
+                  void loadWalletState(true);
                 }}
                 disabled={wallet.isLoading}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-100 transition hover:border-cyan-400/40 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"

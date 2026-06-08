@@ -10,7 +10,7 @@ interface EditorProps {
 
 export default function Editor({ code, setCode }: EditorProps) {
   return (
-    <div className="flex-1 rounded-xl overflow-hidden border border-gray-800 bg-[#1e1e1e] shadow-2xl">
+    <div className="relative h-[500px] w-full rounded-xl overflow-hidden border border-gray-800 bg-[#1e1e1e] shadow-2xl">
       <MonacoEditor
         height="100%"
         width="100%"
@@ -21,8 +21,6 @@ export default function Editor({ code, setCode }: EditorProps) {
         options={{
           minimap: { enabled: false },
           fontSize: 14,
-          fontFamily:
-            "var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           padding: { top: 16, bottom: 16 },
           scrollBeyondLastLine: false,
           smoothScrolling: true,

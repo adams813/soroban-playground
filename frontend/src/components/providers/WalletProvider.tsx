@@ -18,7 +18,7 @@ interface WalletContextType {
   status: ConnectionStatus;
   network: string | null;
   error: string | null;
-  connect: (type: WalletType) => Promise<void>;
+  connect: (type: WalletType, auto?: boolean) => Promise<void>;
   disconnect: () => void;
   switchAccount: (address: string) => void;
   signTransaction: (xdr: string) => Promise<string | null>;
@@ -39,7 +39,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return false;
     switch (type) {
       case "freighter":
-        return !!window.freighter;
+        // @ts-ignore
+        return !!window.freighter || !!window.stellar || !!window.freighterApi;
       case "soroban-wallet":
         // @ts-ignore
         return !!window.soroban;
@@ -48,7 +49,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const connect = useCallback(async (type: WalletType) => {
+  const connect = useCallback(async (type: WalletType, auto = false) => {
     if (typeof window === "undefined") return;
 
     if (!isWalletDetected(type)) {
@@ -64,9 +65,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       let address = "";
       let net = "";
 
-      if (type === "freighter" && window.freighter) {
-        address = await window.freighter.getPublicKey();
-        net = await window.freighter.getNetwork();
+      if (type === "freighter") {
+        const freighterApi = await import("@stellar/freighter-api");
+        const allowedRes = await freighterApi.isAllowed();
+        
+        let isAllowed = allowedRes.isAllowed === true;
+        
+        if (!isAllowed) {
+          if (auto) {
+            // Do not prompt for access on auto-connect, wait for user interaction
+            setStatus("idle");
+            return;
+          }
+          const accessRes = await freighterApi.requestAccess();
+          if (accessRes.error) throw new Error(accessRes.error);
+          address = accessRes.address;
+        } else {
+          const addressRes = await freighterApi.getAddress();
+          if (addressRes.error) throw new Error(addressRes.error);
+          address = addressRes.address;
+        }
+
+        const networkRes = await freighterApi.getNetworkDetails();
+        if (networkRes.error) throw new Error(networkRes.error);
+        net = networkRes.network;
       } else if (type === "soroban-wallet") {
         // @ts-ignore
         const res = await window.soroban.getPublicKey();
@@ -110,8 +132,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      if (activeWallet === "freighter" && window.freighter) {
-        return await window.freighter.signTransaction(xdr, {
+      if (activeWallet === "freighter" && (window as any).freighter) {
+        return await (window as any).freighter.signTransaction(xdr, {
           network: network ?? "TESTNET",
         });
       }
@@ -127,7 +149,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const preferred = localStorage.getItem("preferred_wallet") as WalletType | null;
     if (preferred && isWalletDetected(preferred)) {
-      connect(preferred);
+      connect(preferred, true);
     }
   }, [connect, isWalletDetected]);
 
