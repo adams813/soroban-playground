@@ -3,6 +3,7 @@ import "./globals.css";
 import { GraphQLProvider } from "../components/providers/GraphQLProvider";
 import { WalletProvider } from "../components/providers/WalletProvider";
 import SidebarShell from "../components/Sidebar";
+import RenderWarningModal from "../components/RenderWarningModal";
 
 export const metadata: Metadata = {
   title: "Stellar Soroban Playground",
@@ -21,6 +22,7 @@ export default function RootLayout({
         <WalletProvider>
           <GraphQLProvider>
             <SidebarShell>
+              <RenderWarningModal />
               {children}
             </SidebarShell>
           </GraphQLProvider>
