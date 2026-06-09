@@ -40,8 +40,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return false;
     switch (type) {
       case "freighter":
-        // @ts-ignore
-        return !!window.freighter || !!window.stellar || !!window.freighterApi;
+        return true; // Modern Freighter uses postMessage, let the API handle detection
       case "soroban-wallet":
         // @ts-ignore
         return !!window.soroban;

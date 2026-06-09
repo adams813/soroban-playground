@@ -13,7 +13,7 @@
     "@apollo/client": "^4.1.9",
     "@kurkle/color": "^0.4.0",
     "@monaco-editor/react": "^4.7.0",
-    "@stellar/freighter-api": "file:./vendor/freighter-api",
+    "@stellar/freighter-api": "^6.0.1",
     "@types/react-window": "^2.0.0",
     "@wry/caches": "^1.0.1",
     "@wry/context": "^0.7.4",
