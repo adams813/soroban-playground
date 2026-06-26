@@ -12,6 +12,8 @@ import { fileURLToPath } from 'url';
 
 import config from './config/index.js';
 import { corsOptions } from './config/cors.js';
+import { applyServerTuning } from './config/http2Config.js';
+import { http2PushMiddleware } from './middleware/http2Push.js';
 import apiRouter from './routes/api.js';
 import { startCleanupWorker } from './cleanupWorker.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
@@ -41,12 +43,16 @@ import { compressionMiddleware } from './middleware/compressionMiddleware.js';
 import feeEngineRoute from './routes/feeEngine.js';
 import featureFlagsRoute from './routes/featureFlags.js';
 import featureFlagService from './services/featureFlagService.js';
+import webhooksRoute from './routes/webhooks.js';
+import corsAdminRoute from './routes/corsAdmin.js';
+import { startWebhookDispatcher } from './services/webhookDispatcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+applyServerTuning(server); // HTTP/2: keep-alive + headers-timeout tuning
 const PORT = process.env.PORT || 5000;
 
 // Load package.json for version info
@@ -70,6 +76,7 @@ app.use(morgan('combined'));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '5mb' }));
 app.use(compressionMiddleware);
+app.use(http2PushMiddleware);
 
 // Latency tracking middleware
 app.use((req, res, next) => {
@@ -107,6 +114,8 @@ app.use('/api/yield-optimizer', yieldOptimizerRoute);
 app.use('/api/reit', reitRoute);
 app.use('/api/fee-engine', feeEngineRoute);
 app.use('/api/feature-flags', featureFlagsRoute);
+app.use('/api/webhooks', webhooksRoute);
+app.use('/api/cors-whitelist', corsAdminRoute);
 app.use('/api/v1/events', eventsV1Route);
 app.use('/api/credentials', credentialsRoute);
 app.use('/metrics', metricsRoute);
@@ -246,6 +255,7 @@ initializeDatabase()
     oracleWorkerPool.start();
     startCleanupWorker();
     featureFlagService.initSubscriber();
+    startWebhookDispatcher();
     setupCredentialRotation();
 
     // Start listening
