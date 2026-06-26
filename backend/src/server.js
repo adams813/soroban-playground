@@ -43,6 +43,7 @@ import feeEngineRoute from './routes/feeEngine.js';
 import featureFlagsRoute from './routes/featureFlags.js';
 import featureFlagService from './services/featureFlagService.js';
 import batchSubmitterRoute from './routes/batchSubmitter.js';
+import { setupSwagger } from './docs/swagger.js';
 import { startMemoryLeakDetector } from './services/memoryLeakDetector.js';
 import { contractEventIndexer } from './services/contractEventIndexer.js';
 import { runStartupMigrations } from './services/migrationService.js';
@@ -165,6 +166,7 @@ app.use('/metrics', metricsRoute);
 
 // GraphQL Endpoint
 setupGraphQL(app);
+setupSwagger(app);
 
 // ─── Health Check Helpers ──────────────────────────────────────────────────────
 
