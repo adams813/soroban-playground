@@ -42,6 +42,7 @@ import { compressionMiddleware } from './middleware/compressionMiddleware.js';
 import feeEngineRoute from './routes/feeEngine.js';
 import featureFlagsRoute from './routes/featureFlags.js';
 import featureFlagService from './services/featureFlagService.js';
+import batchSubmitterRoute from './routes/batchSubmitter.js';
 import { setupSwagger } from './docs/swagger.js';
 import { startMemoryLeakDetector } from './services/memoryLeakDetector.js';
 import { contractEventIndexer } from './services/contractEventIndexer.js';
@@ -159,6 +160,7 @@ app.use('/api/reit', reitRoute);
 app.use('/api/fee-engine', feeEngineRoute);
 app.use('/api/feature-flags', featureFlagsRoute);
 app.use('/api/v1/events', eventsV1Route);
+app.use('/api/batch', batchSubmitterRoute);
 app.use('/api/credentials', credentialsRoute);
 app.use('/metrics', metricsRoute);
 
