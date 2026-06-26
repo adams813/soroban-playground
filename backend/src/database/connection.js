@@ -40,6 +40,9 @@ async function openDatabase(options = {}) {
     driver: sqlite3.Database,
   });
 
+  const { withCacheBusting } = await import('./cacheInterceptor.js');
+  const wrappedHandle = withCacheBusting(handle);
+
   const fs = await import('fs/promises');
   const rawSchema = await fs.readFile(schemaPath, 'utf-8').catch((error) => {
     throw enhanceDatabaseError(error, `failed to read schema at ${schemaPath}`);
