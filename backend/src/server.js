@@ -164,11 +164,14 @@ app.use('/api/reit', reitRoute);
 app.use('/api/fee-engine', feeEngineRoute);
 app.use('/api/feature-flags', featureFlagsRoute);
 app.use('/api/v1/events', eventsV1Route);
+app.use('/api/registry', serviceRegistryRoute);
+app.use('/api/batch', batchSubmitterRoute);
 app.use('/api/credentials', credentialsRoute);
 app.use('/metrics', metricsRoute);
 
 // GraphQL Endpoint
 setupGraphQL(app);
+setupSwagger(app);
 
 // ─── Health Check Helpers ──────────────────────────────────────────────────────
 
