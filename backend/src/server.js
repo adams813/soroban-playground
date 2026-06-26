@@ -42,6 +42,7 @@ import { compressionMiddleware } from './middleware/compressionMiddleware.js';
 import feeEngineRoute from './routes/feeEngine.js';
 import featureFlagsRoute from './routes/featureFlags.js';
 import featureFlagService from './services/featureFlagService.js';
+import { LedgerSyncService } from './services/ledgerSyncService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,7 +64,7 @@ const httpsOptions = {
     'ECDHE-ECDSA-CHACHA20-POLY1305',
     'ECDHE-RSA-CHACHA20-POLY1305',
     'DHE-RSA-AES256-GCM-SHA384',
-    'DHE-RSA-AES128-GCM-SHA256'
+    'DHE-RSA-AES128-GCM-SHA256',
   ].join(':'),
   honorCipherOrder: true,
   ecdhCurve: 'X25519:P-256:P-384',
@@ -76,7 +77,10 @@ try {
     httpsOptions.key = fs.readFileSync(process.env.SSL_KEY_PATH);
     httpsOptions.cert = fs.readFileSync(process.env.SSL_CERT_PATH);
     hasCertificates = true;
-  } else if (fs.existsSync(path.join(__dirname, 'cert.pem')) && fs.existsSync(path.join(__dirname, 'key.pem'))) {
+  } else if (
+    fs.existsSync(path.join(__dirname, 'cert.pem')) &&
+    fs.existsSync(path.join(__dirname, 'key.pem'))
+  ) {
     httpsOptions.key = fs.readFileSync(path.join(__dirname, 'key.pem'));
     httpsOptions.cert = fs.readFileSync(path.join(__dirname, 'cert.pem'));
     hasCertificates = true;
@@ -86,7 +90,9 @@ try {
 }
 
 // Fallback to HTTP if no certs are provided, otherwise use HTTPS
-const server = hasCertificates ? https.createServer(httpsOptions, app) : http.createServer(app);
+const server = hasCertificates
+  ? https.createServer(httpsOptions, app)
+  : http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Load package.json for version info
@@ -114,7 +120,10 @@ app.use(compressionMiddleware);
 // Strict Transport Security (HSTS) headers
 // max-age=63072000 is 2 years, required for Qualys SSL Labs A+ and HSTS preload list
 app.use((req, res, next) => {
-  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader(
+    'Strict-Transport-Security',
+    'max-age=63072000; includeSubDomains; preload'
+  );
   next();
 });
 
@@ -287,18 +296,23 @@ function setupCredentialRotation() {
 
 // WebSocket + compile service + database init
 initializeDatabase()
-  .then(() => {
+  .then((db) => {
     setupWebsocketServer(server);
     initializeCompileService().catch(console.error);
     oracleWorkerPool.start();
     startCleanupWorker();
     featureFlagService.initSubscriber();
     setupCredentialRotation();
+    if (process.env.LEDGER_SYNC_ENABLED === 'true') {
+      new LedgerSyncService({ db }).start();
+    }
 
     // Start listening
     server.listen(PORT, () => {
       const protocol = hasCertificates ? 'https' : 'http';
-      console.log(`✅  Backend server running on ${protocol}://localhost:${PORT}`);
+      console.log(
+        `✅  Backend server running on ${protocol}://localhost:${PORT}`
+      );
     });
   })
   .catch((err) => {

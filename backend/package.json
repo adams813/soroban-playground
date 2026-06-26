@@ -21,7 +21,10 @@
     "test:e2e": "jest tests/syntheticAssets.e2e.test.js",
     "test:synthetic": "jest tests/syntheticAssets.*.test.js",
     "test:all": "npm run test:unit && npm run test:synthetic",
-    "init-db": "node src/database/init.js"
+    "init-db": "node src/database/init.js",
+    "persisted-query:warm": "node scripts/warm-persisted-queries.js",
+    "load:http": "k6 run load-tests/http.js",
+    "load:ws": "k6 run load-tests/websocket.js"
   },
   "keywords": [
     "soroban",
